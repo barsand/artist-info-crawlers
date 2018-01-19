@@ -71,6 +71,7 @@ for interval in intervals:
 #
 # counting comat > cosine and comat < cosine for each interval
 collision_count = 0
+collision_count2 = 0
 ratio_comparison = {}
 for service in SERVICES:
     ratio_comparison[service] = {}
@@ -79,6 +80,7 @@ for service in SERVICES:
         ratio_comparison[service][interval_slug] = {}
         comat_gt_cosine = 0
         cosine_gt_comat = 0
+        comat_eq_cosine = 0
         for i in range(interval[0], interval[1]):
             _id = sorted_ids_and_countsqs[i][0]
             data = percentile_ratios[interval_slug][_id]
@@ -86,14 +88,15 @@ for service in SERVICES:
             curr_cosine = data[COSINE][service]
             if  curr_comat > curr_cosine:
                 comat_gt_cosine += 1
-            elif curr_cosine > curr_comat:
+            if curr_cosine > curr_comat:
                 cosine_gt_comat += 1
-            else:
-                collision_count += 1
+            if curr_cosine == curr_comat:
+                comat_eq_cosine += 1
         ratio_comparison[service][interval_slug] = {
             'comat>cosine': comat_gt_cosine,
             'cosine>comat': cosine_gt_comat,
-            'total': comat_gt_cosine + cosine_gt_comat
+            'comat=cosine': comat_eq_cosine,
+            'total': comat_gt_cosine + cosine_gt_comat + comat_eq_cosine
         }
 
 outf = open('ratio_comparison.json', 'w')

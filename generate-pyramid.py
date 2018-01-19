@@ -5,20 +5,36 @@ import matplotlib.pyplot as plt
 
 _COMAT_GT_COSINE = 'comat>cosine'
 _COSINE_GT_COMAT = 'cosine>comat'
+_COMAT_EQ_COSINE = 'comat=cosine'
+
 
 S_data = json.loads(open(sys.argv[1], 'r').read())['spotify']
 D_data = json.loads(open(sys.argv[1], 'r').read())['deezer']
 
 
 ylabels = sorted(S_data.keys())
+for y in ylabels:
+    S_data[y][_COMAT_EQ_COSINE] /= 2
+    D_data[y][_COMAT_EQ_COSINE] /= 2
+    S_data[y][_COMAT_GT_COSINE] += S_data[y][_COMAT_EQ_COSINE]
+    D_data[y][_COMAT_GT_COSINE] += D_data[y][_COMAT_EQ_COSINE]
+    S_data[y][_COSINE_GT_COMAT] += S_data[y][_COMAT_EQ_COSINE]
+    D_data[y][_COSINE_GT_COMAT] += D_data[y][_COMAT_EQ_COSINE]
+
 
 S_tmp = [S_data[y][_COMAT_GT_COSINE]/S_data[y]['total'] for y in ylabels]
 S_comat_gt_cosine_ratio = np.array(S_tmp)
+S_eq = [S_data[y][_COMAT_EQ_COSINE]/S_data[y]['total'] for y in ylabels]
+S_comat_eq_cosine_ratio = np.array(S_eq)
 S_cosine_gt_comat_ratio = np.array([1 - i for i in S_comat_gt_cosine_ratio])
 
 D_tmp = [D_data[y][_COMAT_GT_COSINE]/D_data[y]['total'] for y in ylabels]
 D_comat_gt_cosine_ratio = np.array(D_tmp)
+D_eq = [D_data[y][_COMAT_EQ_COSINE]/D_data[y]['total'] for y in ylabels]
+D_comat_eq_cosine_ratio = np.array(D_eq)
 D_cosine_gt_comat_ratio = np.array([1 - i for i in D_comat_gt_cosine_ratio])
+
+
 
 
 bar_width = 3
@@ -29,15 +45,25 @@ y = np.array([i * bar_width*2.5 for i in range(S_cosine_gt_comat_ratio.size)])
 fig, axes = plt.subplots(ncols=2, sharey=True)
 axes[0].barh(y, S_comat_gt_cosine_ratio, bar_width, align='center',
              color='lightgreen')
+axes[0].barh(y, S_comat_eq_cosine_ratio, bar_width, align='center',
+             color='green')
 axes[0].barh(y + bar_width, D_comat_gt_cosine_ratio, bar_width, align='center',
              color='lightgray')
+axes[0].barh(y + bar_width, D_comat_eq_cosine_ratio, bar_width, align='center',
+             color='gray')
 axes[0].set(title='coMat > cosine')
 
 axes[1].barh(y, S_cosine_gt_comat_ratio, bar_width, align='center',
              color='lightgreen')
+axes[1].barh(y, S_comat_eq_cosine_ratio, bar_width, align='center',
+             color='green')
 axes[1].barh(y + bar_width, D_cosine_gt_comat_ratio, bar_width, align='center',
              color='lightgray')
+axes[1].barh(y + bar_width, D_comat_eq_cosine_ratio, bar_width, align='center',
+             color='gray')
 axes[1].set(title='cosine > coMat')
+
+
 
 # axes[1].set(yticks=y, yticklabels=ylabels)
 # margin = 1
