@@ -2,7 +2,11 @@
 
 Usage:
 
-first, generate the JSON input for the plot-generating scripts:
+- first, install the requirements:
+
+`pip3 install -r requirements.txt`
+
+- then, generate the JSON input for the plot-generating scripts:
 
 `python3 parse.py clean_out_no_zeroes.txt`
 
