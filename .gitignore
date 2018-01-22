@@ -1,0 +1,4 @@
+out-*.pdf
+*.json
+.DS_Store
+__pycache__/
