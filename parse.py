@@ -69,6 +69,12 @@ for interval in intervals:
         percentile_ratios[interval_slug][_id] = ratios_data[_id]
 
 #
+# generating input for distribution
+outf = open('percentile_ratios.json', 'w')
+outf.write(json.dumps(percentile_ratios, indent=4, sort_keys=True))
+outf.close()
+
+#
 # counting comat > cosine and comat < cosine for each interval
 collision_count = 0
 collision_count2 = 0
@@ -99,6 +105,8 @@ for service in SERVICES:
             'total': comat_gt_cosine + cosine_gt_comat + comat_eq_cosine
         }
 
+#
+# generating input for pyramid plot
 outf = open('ratio_comparison.json', 'w')
 outf.write(json.dumps(ratio_comparison, indent=4, sort_keys=True))
 outf.close()

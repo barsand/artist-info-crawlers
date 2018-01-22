@@ -79,4 +79,4 @@ for ax in axes.flat:
 
 fig.tight_layout()
 fig.subplots_adjust(wspace=margin)
-fig.savefig('out.png')
+fig.savefig('out-pyramid.pdf')
