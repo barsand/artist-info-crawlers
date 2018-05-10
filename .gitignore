@@ -2,3 +2,4 @@ out-*.pdf
 *.json
 .DS_Store
 __pycache__/
+playground/
