@@ -7,8 +7,6 @@ import urllib
 import json
 import time
 
-CRAWLER_KEYS = None
-
 ID2NAME = '-id2name.txt'
 NAME2ID = '-name2id.txt'
 INFO_SUFFIX = '-artist-info.txt'
@@ -35,14 +33,16 @@ class SpotifyCrawler():
             time_until_next_update = self.update_access_token()
             time.sleep(time_until_next_update)
 
-    def __init__(self, crawler_id, outpfx):
+    def __init__(self, crawler_id, outpfx, crawler_keys,
+                 should_flush_conversion=True):
         self.ACCESS_TOKEN = None
+        self.should_flush_conversion = should_flush_conversion
         self.id2name_outpath = outpfx + '-id2name.txt'
         open(self.id2name_outpath, 'w').close()
+        self.crawler_keys = json.loads(open(crawler_keys).read())
 
-        global CRAWLER_KEYS
-        self.client_id = CRAWLER_KEYS[crawler_id]['id']
-        self.client_secret = CRAWLER_KEYS[crawler_id]['secret']
+        self.client_id = self.crawler_keys[crawler_id]['id']
+        self.client_secret = self.crawler_keys[crawler_id]['secret']
 
 
         # we do this here in order to make sure the first request after the
@@ -68,7 +68,7 @@ class SpotifyCrawler():
             self._id2name[artist_id] = artist_name
             flush_flag += 1
 
-        if flush_flag == 2:
+        if flush_flag == 2 and self.should_flush_conversion:
             outfile = open(self.id2name_outpath, 'a')
             outfile.write(artist_id + '\t' + artist_name + '\n')
             outfile.close()
@@ -104,15 +104,14 @@ class SpotifyCrawler():
         except Exception as e:
             return None, e
 
-    def id2artist_info(self, artist_id):
+    def id2artist_info(self, artist_ids):
         try:
-            res = self.get('artists/' + artist_id)
+            res = self.get('artists/?ids=' + ','.join(artist_ids))
             res_status = res.status_code
 
             if res_status == 200:
-                artist_info = res.json()
-                self.update_conversion_dicts(artist_info['name'], artist_id)
-                return res_status, artist_info
+                artists_infos = res.json()['artists']
+                return res_status, artists_infos
 
             else:
                 return None, 'no results.'
@@ -155,11 +154,11 @@ if __name__ == '__main__':
                               help='crawler keys JSON file path', required=True)
 
         required.add_argument('-c', dest='crawler_id', metavar='ID',
-                              help='crawler id in the CRAWLER_KEYS constant',
+                              help='crawler id in the specified CRAWLER_KEYS',
                               required=True)
 
         required.add_argument('-i', dest='inputpath', metavar='PATH',
-                              help='input artist names path', required=True)
+                              help='input artist names path', required=False)
 
         required.add_argument('-o', dest='outpfx', metavar='PATH PFX',
                               help='data output prefix file path',
@@ -167,7 +166,7 @@ if __name__ == '__main__':
 
         required.add_argument('-a', dest='artist_name', metavar='NAME',
                               help='artist name to build the related net from',
-                              required=True)
+                              required=False)
 
 
         return parser.parse_args()
@@ -180,7 +179,6 @@ if __name__ == '__main__':
             return True
 
         except Exception as e:
-            # import ipdb; ipdb.set_trace()
             return False
 
     def save_artist_related(outpfx, artist_id, related_ids):
@@ -193,7 +191,6 @@ if __name__ == '__main__':
             return True
 
         except Exception as e:
-            # import ipdb; ipdb.set_trace()
             return False, e
 
     def create_artist_related_net(crawler_id, artist_name, outpfx):
@@ -205,7 +202,6 @@ if __name__ == '__main__':
 
         status, artist_info = sc.name2artist_info(artist_name)
 
-        # import ipdb; ipdb.set_trace()
         if status != 200:
             return
 
@@ -217,7 +213,7 @@ if __name__ == '__main__':
 
         while(len(next_artist_ids)):
             if count % 100 == 0:
-                queue_bkp = open(outpfx + 'log', 'w')
+                queue_bkp = open(outpfx + '-log.txt', 'w')
                 queue_bkp.write(str(next_artist_ids))
                 queue_bkp.close()
 
@@ -250,11 +246,56 @@ if __name__ == '__main__':
             print('\t\t\tdone with iteration#.' + str(count))
             print('\t\t\tqueue size: ' + str(len(next_artist_ids)) + '\n')
 
+    def crawl_id_list(crawler_id, idlist_path, outpfx, crawler_keys):
+        sc = SpotifyCrawler(crawler_id, outpfx, crawler_keys)
+        artist_ids = list(set(open(idlist_path).read().splitlines()))
+        outpath = outpfx + '-artist-info.txt'
+        open(outpath, 'w').close()
+
+        len_artist_ids = len(artist_ids)
+        chunk_size = 50  # spotify allows up to 50 ids to be fetched per request
+
+        for i in range(0, len_artist_ids, chunk_size):
+            artist_id_chunk = artist_ids[i:i+chunk_size]
+            status, res = sc.id2artist_info(artist_id_chunk)
+
+            if status != 200: continue
+
+            # import ipdb; ipdb.set_trace()
+
+            outfile = open(outpath, 'a')
+            for artist in res:
+                data = [
+                    artist['id'],
+                    artist['name'],
+                    str(artist['popularity']),
+                ]
+
+                try:
+                    data.append(str(artist['followers']['total']))
+                except:
+                    data.append('N/A')
+
+                data.append(json.dumps(artist['genres']))
+
+                outfile.write('\t'.join(data) + '\n')
+            outfile.close()
+
+            print(str(int(((i+chunk_size)/len_artist_ids) * 100)) + '%')
+
+
+
     def run():
         args = get_arguments()
-        global CRAWLER_KEYS
-        CRAWLER_KEYS = json.loads(open(args.crawler_keys).read())
-        create_artist_related_net(args.crawler_id, args.artist_name,
-                                  args.outpfx + '-' + args.artist_name)
+
+        # if not args.artist_name:
+        #     print('must provide artist_name to perform BFS crawling')
+        #     exit()
+        # create_artist_related_net(args.crawler_id, args.artist_name,
+        #                           args.outpfx + '-' + args.artist_name)
+
+
+        crawl_id_list(args.crawler_id, args.inputpath, args.outpfx,
+                      args.crawler_keys)
 
     run()
