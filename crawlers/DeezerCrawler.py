@@ -52,7 +52,6 @@ class DeezerCrawler():
                 return None, 'no results.'
 
         except Exception as e:
-            import ipdb; ipdb.set_trace()
             return None, e
 
     def id2related(self, artist_id):
@@ -62,6 +61,8 @@ class DeezerCrawler():
             res_status = res.status_code
             if res_status != 200:
                 return res_status, None
+
+            import ipdb; ipdb.set_trace()
 
             if len(res.json()['data']):
                 related_artists = [(a['name'], a['id'])
@@ -98,25 +99,72 @@ if __name__ == '__main__':
         return parser.parse_args()
 
     def add_deezer_ids(names2spotify_ids, outpfx):
-        dc = DeezerCrawler(outpfx)
+        # receives a list of spotify names mapped to respective ids and adds
+        # deezer data to it
+        dc = DeezerCrawler(outpfx, should_flush_conversion=False)
         input_siz = len(names2spotify_ids)
         str_input_siz = str(input_siz)
         count = 0
 
+        outpath = outpfx + '-crawled-data.txt'
+        logpath = outpfx + '-log.txt'
+        open(outpath, 'w').close()
+        open(logpath, 'w').close()
 
         for artist_name in names2spotify_ids:
-            print('\ncrawling ' + artist_name)
+            print('\n' + outpfx + ' crawling ' + artist_name)
             print('\t>' + str(count) + ' of ' + str_input_siz)
-            status, res = dc.name2id(artist_name)
             count += 1
-            # import ipdb; ipdb.set_trace()
+
+            try:
+                status, res = dc.name2id(artist_name)
+                assert status == 200
+                f = open(outpath, 'a')
+                f.write(names2spotify_ids[artist_name] + '\t' + artist_name)
+                f.write('\t' + str(res['id']) + '\t' + res['name'] + '\n')
+                f.close()
+
+            except Exception as e:
+                f = open(logpath, 'a')
+                f.write('couldnt fetch data for ' + artist_name + '\n')
+                f.close()
+
+    def crawl_related_artists(artist_ids, outpfx):
+        dc = DeezerCrawler(outpfx)
+        input_siz = len(artist_ids)
+        str_input_siz = str(input_siz)
+        count = 0
+
+        outpath = outpfx + '-crawled-related.txt'
+        logpath = outpfx + '-log.txt'
+        open(outpath, 'w').close()
+        open(logpath, 'w').close()
+
+        for artist_id in artist_ids:
+            print('\n' + outpfx + ' crawling ' + artist_id)
+            print('\t>' + str(count) + ' of ' + str_input_siz)
+            count += 1
+
+            try:
+                status, res = dc.id2related(artist_id)
+                import ipdb; ipdb.set_trace()
+                assert status == 200
+                f = open(outpath, 'a')
+                f.write(names2spotify_ids[artist_name] + '\t' + artist_name)
+                f.write('\t' + str(res['id']) + '\t' + res['name'] + '\n')
+                f.close()
+
+            except Exception as e:
+                f = open(logpath, 'a')
+                f.write('couldnt fetch data for ' + artist_name + '\n')
+                f.close()
 
     args = get_arguments()
 
+    # add_deezer_ids({
+    #     l.split('\t')[1]: l.split('\t')[0]
+    #     for l in open(args.input_path).read().splitlines()
+    # }, args.outpfx)
 
-    names2spotify_ids = {
-        l.split('\t')[1]: [l.split('\t')[0]]
-        for l in open(args.input_path).read().splitlines()
-    }
-
-    add_deezer_ids(names2spotify_ids, args.outpfx)
+    crawl_related_artists(open(args.input_path).read().splitlines(),
+                          args.outpfx)
