@@ -54,6 +54,22 @@ class DeezerCrawler():
         except Exception as e:
             return None, e
 
+    def id2info(self, artist_id):
+        try:
+            url = self.api_url + 'artist/' + artist_id
+            res = requests.get(url)
+            res_status = res.status_code
+            if res_status != 200:
+                return res_status, None
+
+            if 'nb_fan' in res.json():
+                return res_status, res.json()
+            else:
+                return None, 'no results.'
+
+        except Exception as e:
+            return None, e
+
     def id2related(self, artist_id):
         try:
             url = self.api_url + 'artist/' + artist_id + '/related'
@@ -62,15 +78,13 @@ class DeezerCrawler():
             if res_status != 200:
                 return res_status, None
 
-            import ipdb; ipdb.set_trace()
-
             if len(res.json()['data']):
                 related_artists = [(a['name'], a['id'])
                                    for a in res.json()['data']]
                 related_ids = []
                 for artist_name, artist_id in related_artists:
                     self.update_conversion_dicts(artist_name, artist_id)
-                    related_ids.append(artist_id)
+                    related_ids.append(str(artist_id))
 
                 return res_status, related_ids
 
@@ -147,17 +161,44 @@ if __name__ == '__main__':
 
             try:
                 status, res = dc.id2related(artist_id)
-                import ipdb; ipdb.set_trace()
                 assert status == 200
                 f = open(outpath, 'a')
-                f.write(names2spotify_ids[artist_name] + '\t' + artist_name)
-                f.write('\t' + str(res['id']) + '\t' + res['name'] + '\n')
+                f.write('\t'.join([artist_id] + res) + '\n')
                 f.close()
 
-            except Exception as e:
+            except Exception as easdk:
                 f = open(logpath, 'a')
-                f.write('couldnt fetch data for ' + artist_name + '\n')
+                f.write('couldnt fetch data for ' + artist_id + '\n')
                 f.close()
+
+    def crawl_artist_number_of_fans(artist_ids, outpfx):
+        dc = DeezerCrawler(outpfx)
+        input_siz = len(artist_ids)
+        str_input_siz = str(input_siz)
+        count = 0
+
+        outpath = outpfx + '-crawled-info.txt'
+        logpath = outpfx + '-log.txt'
+        open(outpath, 'w').close()
+        open(logpath, 'w').close()
+
+        for artist_id in artist_ids:
+            print('\n' + outpfx + ' crawling ' + artist_id)
+            print('\t>' + str(count) + ' of ' + str_input_siz)
+            count += 1
+
+            try:
+                status, res = dc.id2info(artist_id)
+                f = open(outpath, 'a')
+                f.write('\t'.join([str(res['id']), str(res['nb_fan'])]) + '\n')
+                f.close()
+                print('\tdone.')
+
+            except Exception as easdk:
+                f = open(logpath, 'a')
+                f.write('couldnt fetch data for ' + artist_id + '\n')
+                f.close()
+                print('\failed.')
 
     args = get_arguments()
 
